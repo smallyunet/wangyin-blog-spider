@@ -6,19 +6,127 @@
 </head>
 <body>
 <div class="inner">
-<center><h1>程序语言的常见设计错误(2) - 试图容纳世界</h1></center><h2>程序语言的常见设计错误(2) - 试图容纳世界</h2>
-<p>之前的一篇文章里，我谈到了程序语言设计的一个常见错误倾向：<a href="http://www.yinwang.org/blog-cn/2013/03/15/language-design-mistake1">片面追求短小</a>，它导致了一系列的历史性的设计错误。今天我来谈一下另外一种错误的倾向，这种倾向也导致了很多错误，并且继续在导致错误的产生。</p>
-<p>今天我要说的错误倾向叫做“试图容纳世界”。这个错误导致了 Python，Ruby 和 JavaScript 等“动态语言”里面的一系列问题。我给 Python 写过一个静态分析器，所以我基本上实现了整个 Python 的语义，可以说是对 Python 了解的相当清楚了。在设计这个静态分析的时候，我发现 Python 的设计让静态分析异常的困难，Python 的程序出了问题很难找到错误的所在，Python 程序的执行速度比大部分程序语言都要慢，这其实是源自 Python 本身的设计问题。这些设计问题，其实大部分出自同一个设计倾向，也就是“试图容纳世界”。</p>
-<p>在 Python 里面，每个“对象”都有一个“字典”（dictionary）。这个 dict 里面含有这个对象的 field 到它们的值之间的映射关系，其实就是一个哈希表。一般的语言都要求你事先定义这些名字，并且指定它们的类型。而 Python 不是这样，在 Python 里面你可以定义一个人，这个人的 field 包括“名字”，“头”，“手”，“脚”，……</p>
-<p>但是 Python 觉得，程序应该可以随时创建或者删除这些 field。所以，你可以给一个特定的人增加一个 field，比如叫做“第三只手”。你也可以删除它的某个 field，比如“头”。Python 认为这更加符合这个世界的工作原理，有些人就是可以没有头，有些人又多长了一只手。</p>
-<p>好吧，这真是太方便了。然后你就遇到这样的问题，你要给这世界上的每个人戴一顶帽子。当你写这段代码的时候，你意识中每个人都有头，所以你写了一个函数叫做 <code class="highlighter-rouge">putOnHat</code>，它的输入参数是任意一个人，然后它会给他（她）的头上戴上帽子。然后你想把这个函数 <code class="highlighter-rouge">map</code> 到一个国家的所有人的集合。</p>
-<p>然而你没有想到的是，由于 Python 提供的这种“描述世界的能力”，其它写代码的人制造出各种你想都没想到的怪人。比如，无头人，或者有三只手，六只眼的人，…… 然后你就发现，无论你的 <code class="highlighter-rouge">putOnHat</code> 怎么写，总是会出意外。你惊讶的发现居然有人没有头！最悲惨的事情是，当你费了几个月时间和相当多的能源，给好几亿人戴上了帽子之后，才忽然遇到一个无头人，所以程序当掉了。然而即使你知道程序有 bug，你却很难找出这些无头人是从哪里来的，因为他们来到这个国家的道路相当曲折，绕了好多道弯。为了重现这个 bug，你得等好几个月，它还不一定会出现…… 这就是所谓 <a href="http://www.yinwang.org/blog-cn/2013/04/14/terminology">Higgs-Bugson</a> 吧。</p>
-<p>怎么办呢？所以你想出了一个办法，把“正常人”单独放在一个列表里，其它的怪人另外处理。于是你就希望有一个办法，让别人无法把那些怪人放进这个列表里。你想要的其实就是 Java 里的“类型”，像这样：</p>
-<div class="highlighter-rouge"><div class="highlight"><pre class="highlight"><code>List&lt;有一个头和两只手的正常人&gt; normalPeople;
+<center><h1>Scheme 编程环境的设置</h1></center>
+<p><img src="http://www.yinwang.org/images/paredit1.gif" width="80%"/></p>
+<p>介绍了这么久的 Scheme，却没有讲过如何配置一个高效的 Scheme 的编程环境。有些人开始学习 Scheme 的时候感觉无从下手，所以今天讲一下它的配置。</p>
+<p>Scheme 的配置有很多种方式，我不想介绍太多东西，免得有人看花了眼，所以这里只介绍一下我自己的配置。我不大喜欢像 <a href="http://www.neilvandyke.org/quack">Quack</a> 一类的复杂的环境，因为它们经常有很多多余的功能，却缺少我想要的功能。一旦我想修改它们，又到处出问题。我的配置很简约，我用它写了几千行的超高难度的代码，翻来覆去的改，感觉效率非常高，也没有觉得缺少什么特别重要的东西。</p>
+<p>现在我就一步一步的介绍我的配置。</p>
+<h3 id="安装-scheme">安装 Scheme</h3>
+<h4 id="chez-scheme">Chez Scheme</h4>
+<p>世界上最快，最成熟可靠的 Scheme 实现是 R. Kent Dybvig 所作的 Chez Scheme。它可以把 Scheme 编译成机器代码，运行速度非常高。Chez Scheme 曾经是商业软件，价格昂贵，然而现在却开源了，并且可以免费使用。你可以在这里下载 Chez Scheme 的源代码：</p>
+<p><a href="https://github.com/cisco/ChezScheme">https://github.com/cisco/ChezScheme</a></p>
+<p>编译安装很快很方便，在 Linux 和 Mac 系统基本就是这样：</p>
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>./configure
+make
+sudo make install
 </code></pre></div></div>
-<p>很可惜，Python 不提供给你这种机制，因为这种机制按照 Python 的“哲学”，不足以容纳这个世界的博大精深的万千变化。让程序员手工给参数和变量写上类型，被认为是“过多的劳动”。</p>
-<p>这个问题也存在于 JavaScript 和 Ruby。</p>
-<p>语言的设计者们都应该明白，程序语言不是用来“构造世界”的，而只是对它进行简单的模拟。试图容纳世界的倾向，没带来很多好处，没有节省程序员很多精力，却使得代码完全没有规则可言。这就像生活在一个没有规则，没有制度，没有法律的世界，经常发生无法预料的事情，到处跑着没有头，三只手，六只眼的怪人。这是无穷无尽的烦恼和时间精力的浪费。</p>
+<p>整个编译安装过程只需要30秒。这是世界上最快编译自己全套系统的编译器。</p>
+<h4 id="racket">Racket</h4>
+<p>如果你对性能没有特别高的需求，主要用于学习，也可以用 Racket。它可以在这里下载：</p>
+<p><a href="http://racket-lang.org">http://racket-lang.org</a></p>
+<p>安装应该很容易。Ubuntu 也自带了 Racket，所以可以直接让系统安装它。</p>
+<h3 id="设置-paredit-mode">设置 Paredit mode</h3>
+<p>我编辑 Scheme 的时候都用 Emacs。我使用一个叫做 Paredit mode 的插件。它可以让你“半结构化”式的编辑 Scheme 和其它的 Lisp 文件。开头你可能会有点不习惯，可是一旦习惯了，你就再也离不开它。</p>
+<p>Paredit mode 可以在这里下载：</p>
+<p><a href="http://mumble.net/~campbell/emacs/paredit.el">http://mumble.net/~campbell/emacs/paredit.el</a></p>
+<p>下载之后，把它放到一个目录里，比如 ~/.emacs.d，然后打开 ~/.emacs 配置文件，加入如下设置：</p>
+<div class="language-lisp highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="p">(</span><span class="nv">add-to-list</span> <span class="ss">'load-path</span> <span class="s">"~/.emacs.d"</span><span class="p">)</span>
+<span class="p">(</span><span class="nv">autoload</span> <span class="ss">'paredit-mode</span> <span class="s">"paredit"</span>
+  <span class="s">"Minor mode for pseudo-structurally editing Lisp code."</span>
+  <span class="no">t</span><span class="p">)</span>
+</code></pre></div></div>
+<p>这样，只要你使用 M-x paredit-mode 就可以自动载入这个模式。具体的操作方式可以看它的说明（按 C-h m 查看“模式帮助”），我下面也会简单说一下。</p>
+<h3 id="设置-scheme-mode">设置 scheme mode</h3>
+<p>我一般就用系统自带的 Scheme 模式，叫 cmuscheme。但是为了方便，我自己写了几个函数，用于在执行 Scheme 代码的时候自动启动解释器，并且打开解释器窗口。你基本只需要把下面的代码拷贝到你的 .emacs 文件里就行：</p>
+<div class="language-lisp highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1">;;;;;;;;;;;;</span>
+<span class="c1">;; Scheme </span>
+<span class="c1">;;;;;;;;;;;;</span>
+
+<span class="p">(</span><span class="nb">require</span> <span class="ss">'cmuscheme</span><span class="p">)</span>
+
+<span class="c1">;; push scheme interpreter path to exec-path</span>
+<span class="p">(</span><span class="nb">push</span> <span class="s">"/Applications/Racket/bin"</span> <span class="nv">exec-path</span><span class="p">)</span>
+
+<span class="c1">;; scheme interpreter name</span>
+<span class="p">(</span><span class="k">setq</span> <span class="nv">scheme-program-name</span> <span class="s">"racket"</span><span class="p">)</span>
+
+<span class="c1">;; bypass the interactive question and start the default interpreter</span>
+<span class="p">(</span><span class="nb">defun</span> <span class="nv">scheme-proc</span> <span class="p">()</span>
+  <span class="s">"Return the current Scheme process, starting one if necessary."</span>
+  <span class="p">(</span><span class="nb">unless</span> <span class="p">(</span><span class="nb">and</span> <span class="nv">scheme-buffer</span>
+               <span class="p">(</span><span class="nv">get-buffer</span> <span class="nv">scheme-buffer</span><span class="p">)</span>
+               <span class="p">(</span><span class="nv">comint-check-proc</span> <span class="nv">scheme-buffer</span><span class="p">))</span>
+    <span class="p">(</span><span class="nv">save-window-excursion</span>
+      <span class="p">(</span><span class="nv">run-scheme</span> <span class="nv">scheme-program-name</span><span class="p">)))</span>
+  <span class="p">(</span><span class="nb">or</span> <span class="p">(</span><span class="nv">scheme-get-process</span><span class="p">)</span>
+      <span class="p">(</span><span class="nb">error</span> <span class="s">"No current process. See variable `scheme-buffer'"</span><span class="p">)))</span>
+
+<span class="p">(</span><span class="nb">defun</span> <span class="nv">switch-other-window-to-buffer</span> <span class="p">(</span><span class="nv">name</span><span class="p">)</span>
+    <span class="p">(</span><span class="nv">other-window</span> <span class="mi">1</span><span class="p">)</span>
+    <span class="p">(</span><span class="nv">switch-to-buffer</span> <span class="nv">name</span><span class="p">)</span>
+    <span class="p">(</span><span class="nv">other-window</span> <span class="mi">1</span><span class="p">))</span>
+
+<span class="p">(</span><span class="nb">defun</span> <span class="nv">scheme-split-window</span> <span class="p">()</span>
+  <span class="p">(</span><span class="nb">cond</span>
+   <span class="p">((</span><span class="nb">=</span> <span class="mi">1</span> <span class="p">(</span><span class="nv">count-windows</span><span class="p">))</span>
+    <span class="p">(</span><span class="nv">split-window-vertically</span> <span class="p">(</span><span class="nb">floor</span> <span class="p">(</span><span class="nb">*</span> <span class="mf">0.68</span> <span class="p">(</span><span class="nv">window-height</span><span class="p">))))</span>
+    <span class="c1">;; (split-window-horizontally (floor (* 0.5 (window-width))))</span>
+    <span class="p">(</span><span class="nv">switch-other-window-to-buffer</span> <span class="s">"*scheme*"</span><span class="p">))</span>
+   <span class="p">((</span><span class="nb">not</span> <span class="p">(</span><span class="nb">member</span> <span class="s">"*scheme*"</span>
+               <span class="p">(</span><span class="nb">mapcar</span> <span class="p">(</span><span class="k">lambda</span> <span class="p">(</span><span class="nv">w</span><span class="p">)</span> <span class="p">(</span><span class="nv">buffer-name</span> <span class="p">(</span><span class="nv">window-buffer</span> <span class="nv">w</span><span class="p">)))</span>
+                       <span class="p">(</span><span class="nv">window-list</span><span class="p">))))</span>
+    <span class="p">(</span><span class="nv">switch-other-window-to-buffer</span> <span class="s">"*scheme*"</span><span class="p">))))</span>
+
+<span class="p">(</span><span class="nb">defun</span> <span class="nv">scheme-send-last-sexp-split-window</span> <span class="p">()</span>
+  <span class="p">(</span><span class="nv">interactive</span><span class="p">)</span>
+  <span class="p">(</span><span class="nv">scheme-split-window</span><span class="p">)</span>
+  <span class="p">(</span><span class="nv">scheme-send-last-sexp</span><span class="p">))</span>
+
+<span class="p">(</span><span class="nb">defun</span> <span class="nv">scheme-send-definition-split-window</span> <span class="p">()</span>
+  <span class="p">(</span><span class="nv">interactive</span><span class="p">)</span>
+  <span class="p">(</span><span class="nv">scheme-split-window</span><span class="p">)</span>
+  <span class="p">(</span><span class="nv">scheme-send-definition</span><span class="p">))</span>
+
+<span class="p">(</span><span class="nv">add-hook</span> <span class="ss">'scheme-mode-hook</span>
+  <span class="p">(</span><span class="k">lambda</span> <span class="p">()</span>
+    <span class="p">(</span><span class="nv">paredit-mode</span> <span class="mi">1</span><span class="p">)</span>
+    <span class="p">(</span><span class="nv">define-key</span> <span class="nv">scheme-mode-map</span> <span class="p">(</span><span class="nv">kbd</span> <span class="s">"&lt;f5&gt;"</span><span class="p">)</span> <span class="ss">'scheme-send-last-sexp-split-window</span><span class="p">)</span>
+    <span class="p">(</span><span class="nv">define-key</span> <span class="nv">scheme-mode-map</span> <span class="p">(</span><span class="nv">kbd</span> <span class="s">"&lt;f6&gt;"</span><span class="p">)</span> <span class="ss">'scheme-send-definition-split-window</span><span class="p">)))</span>
+</code></pre></div></div>
+<p>我的配置会在加载 Scheme 文件的时候自动载入 Paredit mode，并且把 F5 键绑定到“执行前面的S表达式”。这样设置的目的是，我只要把光标移动到一个S表达式之后，然后用一根手指头按 F5，就可以执行程序。够懒吧。</p>
+<h3 id="paredit-mode-的简单使用方法">Paredit mode 的简单使用方法</h3>
+<p>Paredit mode 是一个很特殊的模式。它起作用的时候，你不能直接修改括号。这样所有的括号都保持完整的匹配，不可能出现语法错误。但是这样有一个问题，如果你要把一块代码放进另一块代码，或者从里面拿出来，就不是很方便了。</p>
+<p>为此，Paredit mode 提供了几个非常高效的编辑方式。我平时只使用两个：</p>
+<ol>
+<li>
+<p><code class="language-plaintext highlighter-rouge">C-right</code>: 也就是按住 Ctrl 再按右箭头。它的作用是让光标右边的括号，“吞掉”下一个S表达式。</p>
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>比如，`(a b c) (d e)`。你把光标放在 `(a b c)` 里面，然后按 `C-right`。结果就是 `(a b c (d e))`。也就是把 `(d e)` 被整个“吞进”了 `(a b c)` 里面。 
+</code></pre></div> </div>
+</li>
+<li>
+<p><code class="language-plaintext highlighter-rouge">M-r</code>: 去掉外层代码。</p>
+<p>这在你需要去掉外层的 let 等结构的时候非常有用。比如，如果你的代码看起来是这样：</p>
+<div class="language-scheme highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="p">(</span><span class="k">let</span> <span class="p">([</span><span class="nf">x</span> <span class="mi">10</span><span class="p">])</span>
+ <span class="p">(</span><span class="nb">*</span> <span class="nv">x</span> <span class="mi">2</span><span class="p">))</span>
+</code></pre></div> </div>
+<p>当你把光标放在 <code class="language-plaintext highlighter-rouge">(* x 2)</code> 的最左边，然后按  <code class="language-plaintext highlighter-rouge">M-r</code>，结果就变成了</p>
+<div class="language-scheme highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="p">(</span><span class="nb">*</span> <span class="nv">x</span> <span class="mi">2</span><span class="p">)</span>
+</code></pre></div> </div>
+<p>也就是把外面的 <code class="language-plaintext highlighter-rouge">(let ([x 10]) ...)</code> 给“掀掉”了。</p>
+<p>其它的一些按键虽然也有用，不过我觉得这两个是最有用的，甚至不可缺少的。有些其他的自动匹配括号的模式，没有提供这种按键，所以用起来很别扭。</p>
+</li>
+</ol>
+<h3 id="设置括号颜色">设置括号颜色</h3>
+<p>很多人看见 Lisp 就怕了，就是因为它看起来括号太多。可是这样的语法，却是有很大的好处的（参考这篇博文《谈语法》）。如果你真的觉得括号碍眼，你可以稍微调整一下括号的颜色，比如淡灰色。这样括号看起来就没有那么显眼了。</p>
+<p>你只需要下载这个 el，放到你的 .emacs.d:</p>
+<p><a href="https://www.dropbox.com/s/v0ejctd1agrt95x/parenface.el">https://www.dropbox.com/s/v0ejctd1agrt95x/parenface.el</a></p>
+<p>然后在 .emacs 里面加入两行：</p>
+<div class="language-lisp highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="p">(</span><span class="nb">require</span> <span class="ss">'parenface</span><span class="p">)</span>
+<span class="p">(</span><span class="nv">set-face-foreground</span> <span class="ss">'paren-face</span> <span class="s">"DimGray"</span><span class="p">)</span>
+</code></pre></div></div>
+<p>然后再打开 Scheme 代码的时候，你就会看到是这个样子：</p>
+<p><img src="http://www.yinwang.org/images/scheme-paren.jpeg" width="95%"/></p>
+<p>好了，这就是我写 Scheme 的所有配置了。希望这些有所帮助。</p>
 </div>
 </body>
 </html>

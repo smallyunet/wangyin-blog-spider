@@ -6,38 +6,134 @@
 </head>
 <body>
 <div class="inner">
-<center><h1>Java 有值类型吗？</h1></center><h2>Java 有值类型吗？</h2>
-<p>有人看了我之前的文章『<a href="http://www.yinwang.org/blog-cn/2016/06/06/swift">Swift 语言的设计错误</a>』，问我：“你说 Java 只有引用类型（reference type），但是根据 Java 的<a href="http://docs.oracle.com/javase/tutorial/java/nutsandbolts/datatypes.html">官方文档</a>，Java 也有值类型（value type）和引用类型的区别的。比如 int，boolean 等原始类型就是值类型。” 现在我来解释一下这个问题。</p>
-<p>Java 有值类型，原始类型 int，boolean 等是值类型，其实是长久以来的一种误解，它混淆了实现和语义的区别。不要以为 Java 的官方文档那样写就是权威定论，就可以说“王垠不懂” :) 当你认为王垠不懂一个初级问题的时候，都需要三思，因为他可能是大智若愚…… 看了我下面的论述，也许你会发现自己应该怀疑的是，Java 的设计者到底有没有搞明白这个问题 :P</p>
-<p>胡扯结束，现在来说正事。Java，Scheme 等语言的原始类型，比如 char，int，boolean，double 等，在“实现”上确实是通过值（而不是引用，或者叫指针）直接传递的，然而这完全是一种为了效率的优化（叫做 inlining）。这种优化对于程序员应该是不可见的。Java 继承了 Scheme/Lisp 的衣钵，它们在“语义”上其实是没有值类型的。</p>
-<p>这不是天方夜谭，为了理解这一点，你可以做一个很有意思的思维实验。现在你把 Java 里面所有的原始类型都“想象”成引用类型，也就是说，所有的 int, boolean 等原始类型的变量都不包含实际的数据，而是引用（或者叫指针），指向堆上分配的数据。然后你会发现这样“改造后”的 Java，仍然符合现有 Java 代码里能看到的一切现象。也就是说，原始类型被作为值类型还是引用类型，对于程序员完全没有区别。</p>
-<p>举个简单的例子，如果我们把 int 的实现变成完全的引用，然后来看这段代码：</p>
-<div class="highlighter-rouge"><div class="highlight"><pre class="highlight"><code>int x = 1;    // x指向内存地址A，内容是整数1
-int y = x;    // y指向同样的内存地址A，内容是整数1
-x = 2;        // x指向另一个内存地址B，内容是整数2。y仍然指向地址A，内容是1。
+<center><h1>C# 的 IDisposable 接口</h1></center>
+<p>我在微软的团队快被微软 C# 里面的各种 <a href="https://msdn.microsoft.com/en-us/library/system.idisposable(v=vs.110).aspx">IDisposable</a> 对象给折腾疯了……</p>
+<p>故事比较长，先来科普一下。如果你没有用过 C#，IDisposable 是 C# 针对“资源管理”设计的一个接口，它类似于 Java 的 <a href="https://docs.oracle.com/javase/7/docs/api/java/io/Closeable.html">Closeable</a> 接口。这类接口一般提供一个“方法”（比如叫 Dispose 或者 Close），你的资源（比如文件流）实现这个接口。使用资源的人先“打开资源”，用完之后调用这个方法，表示“关闭资源”。比如，文件打开，读写完了之后，调用 close 关掉。看似很简单？;-)</p>
+<p>相比于 Java，C# 大部分时候是更好的语言，然而它并没有全面超越 Java。一个显著的不足之处就是 C# 的 IDisposable 接口引起的头痛，要比 Java 的 Closeable 大很多。经过我分析，这一方面是因为 .NET 库代码里面实现了很多没必要的 IDisposable，以至于你经常需要思考如何处理它们。另一方面是由于微软的编码规范和 Roslyn 静态分析引起的误导，使得用户对于 IDisposable 接口的“正确使用”过度在乎，导致代码无端变得复杂，导致 IDisposable 在用户代码里面传染。</p>
+<h3 id="idisposable-的问题">IDisposable 的问题</h3>
+<p>回来说说我们的代码，本来没那么多问题的，结果把 <a href="https://github.com/dotnet/roslyn-analyzers">Roslyn 静态分析</a>一打开，立马给出几百个警告，说“你应该调用 Disposable 成员的 Dispose 方法”（<a href="(https://msdn.microsoft.com/en-us/library/ms182328.aspx)">CA2213</a>），或者说“类型含有 disposable 成员，却没有实现 IDisposable 接口”（<a href="https://msdn.microsoft.com/en-us/library/ms182172.aspx">CA1001</a>）。</p>
+<p>奇葩的是，C# 里面有些很小却很常用的对象，包括 <a href="https://msdn.microsoft.com/en-us/library/system.threading.manualresetevent(v=vs.110).aspx">ManualResetEvent</a>, <a href="https://msdn.microsoft.com/en-us/library/system.threading.semaphore(v=vs.110).aspx">Semaphore</a>, <a href="https://msdn.microsoft.com/en-us/library/system.threading.readerwriterlockslim(v=vs.110).aspx">ReaderWriterLockSlim</a> 都实现了 IDisposable 接口，所以经常搞得你不知所措。按官方的“规矩”，你得显式的调用所有这些对象的 Dispose 方法进行“释放”，而不能依赖 GC 进行回收。所以你的代码经常看起来就像这个样子：</p>
+<div class="language-c# highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">void</span> <span class="nf">foo</span><span class="p">()</span>
+<span class="p">{</span>
+  <span class="kt">var</span> <span class="k">event</span> <span class="p">=</span> <span class="k">new</span> <span class="nf">ManualResetEvent</span><span class="p">(</span><span class="k">false</span><span class="p">);</span>
+  <span class="c1">// 使用 _event ...</span>
+  <span class="k">event</span><span class="p">.</span><span class="nf">Dispose</span><span class="p">();</span>
+<span class="p">}</span>
 </code></pre></div></div>
-<p>由于我们改造后的 Java 里面 int 全部是引用，所以第一行定义的 <code class="highlighter-rouge">x</code> 并不包含一个整数，而是一个引用，它指向堆里分配的一块内存，这个空间的内容是整数 1。在第二行，我们定 int 变量 <code class="highlighter-rouge">y</code>，当然它也是一个引用，它的值跟 <code class="highlighter-rouge">x</code> 一样，所以 <code class="highlighter-rouge">y</code> 也指向同一个地址，里面的内容是同一个整数：1。在第三行，我们对 <code class="highlighter-rouge">x</code> 这个引用赋值。你会发现一个很有意思的现象，虽然 <code class="highlighter-rouge">x</code> 指向了 2，<code class="highlighter-rouge">y</code> 却仍然指向 1。对 <code class="highlighter-rouge">x</code> 赋值并没能改变 <code class="highlighter-rouge">y</code> 指向的内容，这种情况就跟 int 是值类型的时候一模一样！所以现在虽然 int 变量全部是引用，你却不能实现共享地址的引用能做的事情：对 <code class="highlighter-rouge">x</code> 进行某种操作，导致 <code class="highlighter-rouge">y</code> 指向的内容也发生改变。</p>
-<p>出现这个现象的原因是，虽然现在 int 成了引用类型，你却并不能对它进行引用类型所特有（而值类型没有）的操作。这样的操作包括：</p>
-<ol>
-<li>deref。就像 C 语言里的 <code class="highlighter-rouge">*</code> 操作符。</li>
-<li>成员赋值。就像对 C struct 成员的 <code class="highlighter-rouge">x.foo = 2</code> 。</li>
-</ol>
-<p>在 Java 里，你没法写像 C 语言的 <code class="highlighter-rouge">*x = 2</code> 这样的代码，因为 Java 没有提供 deref 操作符 <code class="highlighter-rouge">*</code>。你也没法通过 <code class="highlighter-rouge">x.foo = 2</code> 这样的语句改变 <code class="highlighter-rouge">x</code> 所指向的内存数据（内容是1）的一部分，因为 int 是一个原始类型。最后你发现，你只能写 <code class="highlighter-rouge">x = 2</code>，也就是改变 <code class="highlighter-rouge">x</code> 这个引用本身的指向。<code class="highlighter-rouge">x = 2</code> 执行之后，原来数字 1 所在的内存空间并没有变成 2，只不过 x 指向了新的地址，那里装着数字 2 而已。指向 1 的其它引用变量比如 <code class="highlighter-rouge">y</code>，不会因为你进行了 <code class="highlighter-rouge">x = 2</code> 这个操作而看到 2，它们仍然看到原来那个1……</p>
-<p>在这种 int 是引用的 Java 里，你对 int 变量 <code class="highlighter-rouge">x</code> 能做的事情只有两种：</p>
-<ol>
-<li>读出它的值。</li>
-<li>对它进行赋值，使它指向另一个地方。</li>
-</ol>
-<p>这两种事情，就跟你能对值类型能做的两件事情没有区别。这就是为什么你没法通过对 <code class="highlighter-rouge">x</code> 的操作而改变 <code class="highlighter-rouge">y</code> 表示的值。所以不管 int 在实现上是传递值还是传递引用，它们在语义上都是等价的。也就是说，原始类型是值类型还是引用类型，对于程序员来说完全没有区别。你完全可以把 Java 所有的原始类型都想成引用类型，之后你能对它们做的事情，你的编程思路和方式，都不会因此有任何的改变。</p>
-<p>从这个角度来看，Java 在语义上是没有值类型的。值类型和引用类型如果同时并存，程序员必须能够在语义上感觉到它们的不同，然而不管原始类型是值类型还是引用类型，作为程序员，你无法感觉到任何的不同。所以你完全可以认为 Java 只有引用类型，把原始类型全都当成引用类型来用，虽然它们确实是用值实现的。</p>
-<p>一个在语义上有值类型的语言（比如 C#，Go 和 Swift）必须具有以下两种特性之一（或者两者都有），程序员才能感觉到值类型的存在：</p>
-<ol>
-<li>deref 操作。这使得你可以用 <code class="highlighter-rouge">*x = 2</code> 这样的语句来改变引用指向的内容，导致共享地址的其它引用看到新的值。你没法通过 <code class="highlighter-rouge">x = 2</code> 让其他值变量得到新的值，所以你感觉到值类型的存在。</li>
-<li>像 struct 这样的“值组合类型”。你可以通过 <code class="highlighter-rouge">x.foo = 2</code> 这样的成员赋值改变引用数据（比如 class object）的一部分，使得共享地址的其它引用看到新的值。你没法通过成员赋值让另一个 struct 变量得到新的值，所以你感觉到值类型的存在。</li>
-</ol>
-<p>实际上，所有的数据都是引用类型就是 Scheme 和 Java 最初的设计原理。原始类型用值来传递数据只是一种性能优化（叫做 inlining），它对于程序员应该是透明（看不见）的。那些在面试时喜欢问“Java 是否所有数据都是引用”，然后当你回答“是”的时候纠正你说“int，boolean 是值类型”的人，都是本本主义者。</p>
-<h3 id="思考题">思考题</h3>
-<p>有人指出，Java 的引用类型可以是 null，而原始类型不行，所以引用类型和值类型还是有区别的。但是其实这并不能否认本文指出的观点，你可以想想这是为什么吗？</p>
+<p>貌似没什么困难嘛，我们把每个对象的 Dispose 方法都调用一下，不就得了？然而问题远远不是这么简单。很多时候你根本搞不清楚什么时候该释放一个对象，因为它存在于一个复杂，动态变化的数据结构里面。除非你使用引用计数，否则你没有办法确定调用 Dispose 的时机。如果你过早调用了 Dispose 方法，而其实还有人在用它，就会出现严重的错误。</p>
+<p>这问题就像 C 语言里面的 free，很多时候你不知道该不该 free 一块内存。如果你过早的 free 了内存，就会出现非常严重而蹊跷的内存错误，比泄漏内存还要严重很多。举一个 C 语言的例子：</p>
+<div class="language-c highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kt">void</span> <span class="nf">main</span><span class="p">()</span>
+<span class="p">{</span>
+    <span class="kt">int</span> <span class="o">*</span><span class="n">a</span> <span class="o">=</span> <span class="n">malloc</span><span class="p">(</span><span class="k">sizeof</span><span class="p">(</span><span class="kt">int</span><span class="p">));</span>
+    <span class="o">*</span><span class="n">a</span> <span class="o">=</span> <span class="mi">1</span><span class="p">;</span>
+
+    <span class="kt">int</span> <span class="o">*</span><span class="n">b</span> <span class="o">=</span> <span class="n">malloc</span><span class="p">(</span><span class="k">sizeof</span><span class="p">(</span><span class="kt">int</span><span class="p">));</span>
+    <span class="o">*</span><span class="n">b</span> <span class="o">=</span> <span class="mi">2</span><span class="p">;</span>
+
+    <span class="n">free</span><span class="p">(</span><span class="n">a</span><span class="p">);</span>
+
+    <span class="kt">int</span> <span class="o">*</span><span class="n">c</span> <span class="o">=</span> <span class="n">malloc</span><span class="p">(</span><span class="k">sizeof</span><span class="p">(</span><span class="kt">int</span><span class="p">));</span>
+    <span class="o">*</span><span class="n">c</span> <span class="o">=</span> <span class="mi">3</span><span class="p">;</span>
+
+    <span class="n">printf</span><span class="p">(</span><span class="s">"%d, %d, %d</span><span class="se">\n</span><span class="s">"</span><span class="p">,</span> <span class="o">*</span><span class="n">a</span><span class="p">,</span> <span class="o">*</span><span class="n">b</span><span class="p">,</span> <span class="o">*</span><span class="n">c</span><span class="p">);</span>    
+<span class="p">}</span>
+</code></pre></div></div>
+<p>你知道这个程序最后是什么结果吗？自己运行一下看看吧。所以对于复杂的数据结构，比如图节点，你就只好给对象加上引用计数。相信我，使用引用计数很痛苦。或者如果你的内存够用，也不需要分配释放很多中间结果，那你就干脆把这些对象都放进一个“池子”，到算法结束以后再一并释放它们……</p>
+<p>是的 C# 有垃圾回收（GC），所以你以为不用再考虑这些低级问题了。不幸的是，IDisposable 接口以及对于它兢兢业业的态度，把这麻烦事给带回来了。以前在 Java 里用此类对象，从来没遇到过这么麻烦的事情，最多就是打开文件的时候要记得关掉（关于文件，我之后会细讲一下）。</p>
+<p>我不记得 Java 的等价物（<a href="https://docs.oracle.com/javase/7/docs/api/java/io/Closeable.html">Closeable</a> 接口）引起过这么多的麻烦，Java 的 <a href="https://docs.oracle.com/javase/7/docs/api/java/util/concurrent/Semaphore.html">Semaphore</a> 根本就没有实现 Closeable 接口，也不需要在用完之后调用什么 Close 或者 Dispose 之类的方法。作为一个眼睛雪亮的旁观者，我开始怀疑 C# 里的那些像 Semaphore 之类的小东西是否真的需要显式的“释放资源”。</p>
+<h3 id="net-库代码实现不必要的-idisposable-接口">.NET 库代码实现不必要的 IDisposable 接口</h3>
+<p>为了搞明白 C# 库代码里面为什么这么多 IDisposable 对象，我用 JetBrains 出品的反编译器 <a href="https://www.jetbrains.com/decompiler">dotPeek</a> （好东西呀）反编译了 .NET 的库代码。结果发现好些库代码实现了完全没必要的 IDisposable 接口。这说明有些 .NET 库代码的作者其实没有弄明白什么时候该实现 IDisposable ，以及如何有意义地实现它。</p>
+<p>这些有问题的类，包括常用的 HashAlgorithm（各种 SHA 算法的父类）和 MemoryStream。其中 HashAlgorithm 的 Dispose 方法完全没必要，这个类的源代码看起来是这个样子：</p>
+<div class="language-c# highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">public</span> <span class="k">abstract</span> <span class="k">class</span> <span class="nc">HashAlgorithm</span> <span class="p">:</span> <span class="n">IDisposable</span><span class="p">,</span> <span class="n">ICryptoTransform</span> <span class="p">{</span>
+  <span class="p">...</span>
+  <span class="k">protected</span> <span class="k">internal</span> <span class="kt">byte</span><span class="p">[]</span> <span class="n">HashValue</span><span class="p">;</span>
+  <span class="p">...</span>
+  <span class="k">protected</span> <span class="k">virtual</span> <span class="k">void</span> <span class="nf">Dispose</span><span class="p">(</span><span class="kt">bool</span> <span class="n">disposing</span><span class="p">)</span>
+  <span class="p">{</span>
+      <span class="k">if</span> <span class="p">(</span><span class="n">disposing</span><span class="p">)</span>
+      <span class="p">{</span>
+          <span class="k">if</span> <span class="p">(</span><span class="n">HashValue</span> <span class="p">!=</span> <span class="k">null</span><span class="p">)</span>
+              <span class="n">Array</span><span class="p">.</span><span class="nf">Clear</span><span class="p">(</span><span class="n">HashValue</span><span class="p">,</span> <span class="m">0</span><span class="p">,</span> <span class="n">HashValue</span><span class="p">.</span><span class="n">Length</span><span class="p">);</span>
+          <span class="n">HashValue</span> <span class="p">=</span> <span class="k">null</span><span class="p">;</span>
+          <span class="n">m_bDisposed</span> <span class="p">=</span> <span class="k">true</span><span class="p">;</span>
+      <span class="p">}</span>
+  <span class="p">}</span>
+<span class="p">}</span>
+</code></pre></div></div>
+<p>看明白了吗？它不过是在把内部数组 HashValue 的每个元素清零，然后把指针设为 null。这个库代码作者没有搞明白的是，如果你的 Dispose 方法只是在把一些成员设为 null，那么你根本就不需要实现 IDisposable。为什么呢？因为把引用设为 null 并不等于 C 语言里面的 free，它并不能立即回收那份内存，就算你的对象里面有一个很大的数组也一样。我发现有些 C# 程序员喜欢在使用对象之后把引用赋值为 null，就像这样写代码：</p>
+<div class="language-c# highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">void</span> <span class="nf">foo</span><span class="p">()</span>
+<span class="p">{</span>
+  <span class="n">BigObject</span> <span class="n">x</span> <span class="p">=</span> <span class="k">new</span> <span class="nf">BigObject</span><span class="p">();</span>
+  <span class="c1">// ...</span>
+  <span class="c1">// 使用 x 指向的对象 ...</span>
+  <span class="c1">// ...</span>
+  <span class="n">x</span> <span class="p">=</span> <span class="k">null</span><span class="p">;</span>
+<span class="p">}</span>
+</code></pre></div></div>
+<p><code class="language-plaintext highlighter-rouge">x = null</code> 是毫无意义的。写出这样的代码，说明他们不明白 GC 是如何工作的，以为把引用设为 null 就可以释放内存，以为不把引用设为 null，内存就不会被回收！再进一步，如果你仔细看 HashAlgorithm 的源代码，就会发现 HashValue 这个成员数组其实没有必要存在，因为它保存的只是上一次调用 ComputeHash() 的结果而已。这种保存结果的事情，本来应该交给使用者去做，而不是包揽到自己身上。这个数组的存在，还导致你没法重用同一个 HashAlgorithm 对象，因为有共享的成员 HashValue，所以不再是 thread safe 的。</p>
+<p>其实在 C# 里面，你没有办法可以手动回收内存，因为内存是由 GC 统一管理的。就算你实现 Dispose，在里面把成员设置为 null，内存也只有等下次 GC 执行的时候才可能被回收。举一个例子：</p>
+<pre><code class="language-C#">class Foo : IDisposable
+{
+  private byte[] _data = new byte[1000000000];
+  
+  public void Dispose()
+  {
+  	_data = null;    // 没用的
+  }
+}
+</code></pre>
+<p>在这个例子里面，Foo 类型的 Dispose 只是在把 _data 设为 null，这是毫无意义的。如果你想释放掉这块数组，那么你只需要等不再有人使用 Foo 对象。比如：</p>
+<div class="language-c# highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">void</span> <span class="nf">UseFoo</span><span class="p">()</span>
+<span class="p">{</span>
+  <span class="n">Foo</span> <span class="n">foo</span> <span class="p">=</span> <span class="k">new</span> <span class="nf">Foo</span><span class="p">();</span>
+  <span class="c1">// 使用 f...</span>
+  <span class="n">foo</span><span class="p">.</span><span class="nf">Dispose</span><span class="p">();</span>  <span class="c1">// 没必要</span>
+  <span class="n">foo</span> <span class="p">=</span> <span class="k">null</span><span class="p">;</span>     <span class="c1">// 没必要</span>
+<span class="p">}</span>
+</code></pre></div></div>
+<p>这里的 <code class="language-plaintext highlighter-rouge">foo.Dispose()</code> 是完全没必要的。你甚至没必要写 <code class="language-plaintext highlighter-rouge">foo = null</code>，因为 foo 是一个局部变量，它一般很快就会离开作用域的。当函数执行完毕，或者编译器推断 foo 不会再次被使用的时候，GC 会回收整个 Foo 对象，包括里面的巨大数组。</p>
+<p>所以正确的做法应该是完全不要 Dispose，不实现 IDisposable 接口。有些人问，要是 Foo 对象被放进一个全局哈希表之类的数据结构，GC 没法释放它，就需要 Dispose 了吧？这也是一种常见的误解。如果你真要回收全局哈希表里的 Foo 对象，你只需要把 Foo 对象从哈希表里面删掉就可以了。一旦哈希表对 Foo 对象的引用没有了，GC 运行的时候就会发现它成了垃圾，里面的 _data 数组自然也是垃圾，所以一起就回收掉了。</p>
+<p>所以简言之，Dispose 不是用来给你回收内存用的。在 Dispose 方法里把成员设为 null，并不会导致更快的内存释放。有人可能以为 HashAlgorithm 是为了“安全”考虑，所以在 Dispose 方法里对数组清零。然而 IDisposable 是用于释放“资源”的接口，把安全清零这种事情放在这个接口里面，反而会让人误解，造成疏忽。</p>
+<p>而且从源代码里的注释看来，HashAlgorithm 的这个方法确实是为了释放资源，而不是为了什么安全考虑。这些库代码实现 IDisposable，意味着这个接口会通过这些库代码不必要的传递到用户代码里面去，导致很多不知情用户的代码被迫实现 IDisposable，造成“传染”。</p>
+<p>作为练习，你可以分析一下 MemoryStream 的 Dispose 方法，为什么是没必要的：</p>
+<div class="language-c# highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">protected</span> <span class="k">override</span> <span class="k">void</span> <span class="nf">Dispose</span><span class="p">(</span><span class="kt">bool</span> <span class="n">disposing</span><span class="p">)</span>
+<span class="p">{</span>
+    <span class="k">try</span>
+    <span class="p">{</span>
+        <span class="k">if</span> <span class="p">(</span><span class="n">disposing</span><span class="p">)</span>
+        <span class="p">{</span>
+            <span class="n">_isOpen</span> <span class="p">=</span> <span class="k">false</span><span class="p">;</span>
+            <span class="n">_writable</span> <span class="p">=</span> <span class="k">false</span><span class="p">;</span>
+            <span class="n">_expandable</span> <span class="p">=</span> <span class="k">false</span><span class="p">;</span>
+<span class="cp">#if FEATURE_ASYNC_IO
+</span>        <span class="n">_lastReadTask</span> <span class="p">=</span> <span class="k">null</span><span class="p">;</span>
+<span class="cp">#endif
+</span>        <span class="p">}</span>
+    <span class="p">}</span>
+    <span class="k">finally</span>
+    <span class="p">{</span>
+        <span class="c1">// Call base.Close() to cleanup async IO resources</span>
+        <span class="k">base</span><span class="p">.</span><span class="nf">Dispose</span><span class="p">(</span><span class="n">disposing</span><span class="p">);</span>
+    <span class="p">}</span>
+<span class="p">}</span>
+</code></pre></div></div>
+<p>另外，我发现 AutoResetEvent，ManualResetEvent，ReaderWriterLockSlim，Semaphore 这些 IDisposable 对象，里面的所谓“资源”，归根结底都是一些很小的 Windows event 对象，而且它们都继承了 SafeHandle。SafeHandle 本身有一个“析构函数”（finalizer），它看起来是这个样子：</p>
+<div class="language-c# highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="p">~</span><span class="nf">SafeHandle</span><span class="p">()</span>
+<span class="p">{</span>
+	<span class="nf">Dispose</span><span class="p">(</span><span class="k">false</span><span class="p">);</span>
+<span class="p">}</span>
+</code></pre></div></div>
+<p>当 SafeHandle 被 GC 回收的时候，GC 会自动自动调用这个析构函数，进而调用 Dispose。也就是说，你其实并不需要手动调用这些对象（例如 ManualResetEvent, Semaphore 之类）的 Dispose 方法，因为 GC 会调用它们。这些对象占用资源不多，系统里也不会有很多这种对象，所以 GC 完全应该有能力释放它们占用的系统资源。</p>
+<h3 id="文件的特殊性质">文件的特殊性质</h3>
+<p>很多人谈到这个问题，就会举文件的例子来反驳你，说：“你不应该依靠 GC 来释放 IDisposable 对象。你应该及时关闭文件，所以对于其它 IDisposable 资源，也应该及时关闭，不应该等 GC 来释放它。” 这些人没有抓住问题的关键，所以他们把文件和其它 IDisposable 资源一概而论。</p>
+<p>文件是一种很特殊的资源，它和其它 IDisposable 对象是很不一样的。你之所以需要在用完一个文件之后立即关掉它，而不能等 GC  来做这事，是因为文件是一种隐性的“全局资源”。这种“全局”，是从程序语言语义的角度来看的。文件很像程序里的全局变量，无论从什么地方都可以访问。</p>
+<p>使用文件的时候，你使用文件名来读写它，任何知道这个名字的进程都可以访问这个文件。（我们这里忽略权限之类的问题，那跟语义是不相关的。）这使得文件成为一种“全局资源”，也就是说它不是 thread safe 的。在并发系统里面，在任何一个时刻，只能有一个进程打开文件进行写操作。然后这个文件就被它“锁住”了，其它进程不能打开，否则就会出现混乱。所以如果这个进程不及时关掉文件，其它人就没法用它。</p>
+<p>写文件其实是给它加了锁，当然你必须及时进行解锁，而不能等 GC 这种非实时的方式来帮你解锁。否则即使你不再引用这个文件，其他人仍然没法立即进入锁定的区域，这就造成了不必要的等待。所以文件的所谓“打开”和“关闭”操作，本质上隐含了加锁和解锁操作。</p>
+<p>文件是很特殊的资源。系统里的大部分其它资源，都不像文件这样是共享的，而是分配给进程“私人使用”的。系统里面可以有任意多个这样的资源，你用任何一个都可以，它们的使用互不干扰，不需要加锁，所以你并不需要非常及时的关闭它们。这种资源的性质，跟内存的性质几乎完全一样。</p>
+<p>像 C# 里的 ManualResetEvent, Semaphore, ReaderWriterLockSlim 就属于这种非共享资源，它们的性质跟内存非常相似。就算它们实现了 IDisposable 接口，关闭它们的重要性也跟关闭文件相差非常大。我通过测试发现，就算你把它们完全交给 GC 处理，也不会有任何问题。无论你是否调用它们的 Dispose 方法，系统性能都一模一样。只不过如果你调用 Dispose，计算花的时间还要稍微多一些。</p>
+<h3 id="官方文档和-roslyn-静态分析不可靠">官方文档和 Roslyn 静态分析不可靠</h3>
+<p>微软官方文档和 Roslyn 静态分析说一定要调用 Dispose，其实是把不是问题的问题拿出来，让没有深入理解的人心惊胆战。结果把代码给搞复杂了，进而引发更严重的问题。很多人把 Roslyn 静态分析的结果很当回事，而其实看了 Roslyn 静态分析的源代码之后，我发现他们关于 Dispose 的静态分析实现，是相当幼稚的作法。基本的流分析（flow analysis）都没有，靠肤浅的表象猜测，所以结果是非常不准确的，导致很多 false positive。回忆一下我的 PySonar 全局流分析，以及我在 Coverity 是干什么的，你就知道我为什么知道这些 ;-)</p>
+<p>另外 Roslyn 分析给出的警告信息，还有严重的误导性质，会导致一知半解的人过度紧张。比如编号为 <a href="https://msdn.microsoft.com/en-us/library/ms182172.aspx">CA1001</a> 的警告对你说：“Types that own disposable fields should be disposable。” 如果你严格遵循这一“条款”，让所有含有 IDispoable 的成员的类都去实现 IDisposable，那么 IDisposable 接口就会从一些很小的对象（比如常见的 ManualResetEvent），很快扩散到其它用户对象里去。许多对象都实现 IDisposable 接口，却没有任何对象真正的调用 Dispose 方法。最终结果跟你什么都不做是一样的，只不过代码变复杂了，还浪费了时间和精力。</p>
 </div>
 </body>
 </html>
