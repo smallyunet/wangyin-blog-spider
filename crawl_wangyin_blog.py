@@ -98,11 +98,11 @@ def save_pdf(htmls, file_name):
     :return:
     """
     options = {
-        'page-size': 'A3',
-        'margin-top': '0.5in',
+        'page-size': 'A4',
+        'margin-top': '0.75in',
         'margin-right': '0.75in',
         'margin-bottom': '0.75in',
-        'margin-left': '0.875in',
+        'margin-left': '0.75in',
         'encoding': "UTF-8",
         'custom-header': [
             ('Accept-Encoding', 'gzip')
@@ -111,7 +111,7 @@ def save_pdf(htmls, file_name):
             ('cookie-name1', 'cookie-value1'),
             ('cookie-name2', 'cookie-value2'),
         ],
-        'minimum-font-size': 22,
+        'minimum-font-size': 12,
     }
     try:
         pdfkit.from_file(htmls, file_name, options=options)
