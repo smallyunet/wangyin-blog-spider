@@ -1,7 +1,7 @@
 # -*- coding:utf-8 -*-
-#在合并pdf文件时出现问题，这里的话请参考https://github.com/mstamy2/PyPDF2/issues/193
-#参考了https://blog.csdn.net/hubaoquanu/article/details/66973149  对此表示感谢
-#2018-4-1 by jishuzhain
+# 在合并pdf文件时出现问题，这里的话请参考https://github.com/mstamy2/PyPDF2/issues/193
+# 参考了https://blog.csdn.net/hubaoquanu/article/details/66973149  对此表示感谢
+# 2018-4-1 by jishuzhain
 
 import os
 import re
@@ -11,6 +11,7 @@ import pdfkit
 import requests
 from bs4 import BeautifulSoup
 from PyPDF2 import PdfFileMerger
+import os.path
 
 html_template = """
 <!DOCTYPE html>
@@ -52,7 +53,10 @@ def parse_url_to_html(url, name):
         response = requests.get(url)
         soup = BeautifulSoup(response.content, 'html.parser')
         # 正文
-        body = soup.find_all(class_="inner")[0]
+        inner = soup.find_all(class_="inner")
+        if inner.__len__() == 0:
+            return False
+        body = inner[0]
         # 标题
         title = soup.find('h2').get_text()
 
@@ -77,11 +81,10 @@ def parse_url_to_html(url, name):
         html = html_template.format(content=html)
         # html = html.encode("utf-8")   #这里存在问题，进行编码后解析错误我就直接注释掉了，也许是本人的IDE环境所致
         with open(name, 'wb') as f:
-            f.write(html)
-        return name
+            f.write(html.encode())
+        return True
 
     except Exception as e:
-
         logging.error("解析错误", exc_info=True)
 
 
@@ -108,43 +111,58 @@ def save_pdf(htmls, file_name):
         ],
         'outline-depth': 10,
     }
-    pdfkit.from_file(htmls, file_name, options=options)
+    try:
+        pdfkit.from_file(htmls, file_name, options=options)
+    except Exception as e:
+        logging.error("转换错误", exc_info=True)
 
 
 def main():
     start = time.time()
     file_name = u"wang-yin-blog"
     urls = get_url_list()
+    wrongUrl = []
     for index, url in enumerate(urls):
-        parse_url_to_html(url, str(index) + ".html")
+        name = str(index) + ".html"
+        if os.path.isfile(name):
+            continue
+        res = parse_url_to_html(url, name)
+        if res is False:
+            wrongUrl.append(str(index))
+        print(u"下载完成第" + str(index) + '个html')
+    
     htmls = []
     pdfs = []
-    for i in range(0, 134):
+    print("wrongUrl", wrongUrl)
+    for i in range(0, urls.__len__()):
+        if str(i) in wrongUrl:
+            continue
+        name = file_name + str(i) + '.pdf'
         htmls.append(str(i) + '.html')
-        pdfs.append(file_name + str(i) + '.pdf')
+        pdfs.append(name)
+        if os.path.isfile(name):
+            continue
 
-        save_pdf(str(i) + '.html', file_name + str(i) + '.pdf')
-        print str(i) + " is ok"
-        #print u"转换完成第" + str(i) + '个html'
+        save_pdf(str(i) + '.html', name)
+        print(u"转换完成第" + str(i) + '个html')
+
     merger = PdfFileMerger()
     for pdf in pdfs:
         merger.append(open(pdf, 'rb'))
-        print str(i) + ' pdf' + pdf
-        # print u"合并完成第" + str(i) + '个pdf' + pdf
+        print(u"合并完成第" + str(i) + '个pdf' + pdf)
 
     output = open(u"wang-yin.pdf", "wb")
     merger.write(output)
 
-    print "OK is done!"
-    # print u"输出PDF成功！"
+    print(u"输出PDF成功！")
 
     for html in htmls:
         os.remove(html)
-        print u"删除临时文件" + html
+        print(u"删除临时文件" + html)
 
     for pdf in pdfs:
         os.remove(pdf)
-        print u"删除临时文件" + pdf
+        print(u"删除临时文件" + pdf)
 
     total_time = time.time() - start
     print(u"总共耗时：%f 秒" % total_time)
