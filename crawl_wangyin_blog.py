@@ -12,6 +12,7 @@ import requests
 from bs4 import BeautifulSoup
 from PyPDF2 import PdfFileMerger
 import os.path
+import shutil
 
 html_template = """
 <!DOCTYPE html>
@@ -59,6 +60,7 @@ def parse_url_to_html(url, name):
         body = inner[0]
         # 标题
         title = soup.find('h2').get_text()
+        soup.select_one("h2").decompose()
 
         # 标题加入到正文的最前面，居中显示
         center_tag = soup.new_tag("center")
@@ -118,14 +120,18 @@ def save_pdf(htmls, file_name):
 
 
 def main():
+    shutil.rmtree("html") if os.path.exists("html") else None
+    os.mkdir("html") if not os.path.exists("html") else None
+    shutil.rmtree("pdf") if os.path.exists("pdf") else None
+    os.mkdir("pdf") if not os.path.exists("pdf") else None
+
     start = time.time()
     file_name = u"wang-yin-blog"
     urls = get_url_list()
     wrongUrl = []
     for index, url in enumerate(urls):
         name = str(index) + ".html"
-        if os.path.isfile(name):
-            continue
+        name = os.path.join("html", name)
         res = parse_url_to_html(url, name)
         if res is False:
             wrongUrl.append(str(index))
@@ -137,13 +143,14 @@ def main():
     for i in range(0, urls.__len__()):
         if str(i) in wrongUrl:
             continue
+        htmlName = str(i) + ".html"
+        htmlName = os.path.join("html", htmlName)
         name = file_name + str(i) + '.pdf'
-        htmls.append(str(i) + '.html')
+        name = os.path.join("pdf", name)
+        htmls.append(htmlName)
         pdfs.append(name)
-        if os.path.isfile(name):
-            continue
 
-        save_pdf(str(i) + '.html', name)
+        save_pdf(htmlName, name)
         print(u"转换完成第" + str(i) + '个html')
 
     merger = PdfFileMerger()
@@ -156,13 +163,13 @@ def main():
 
     print(u"输出PDF成功！")
 
-    for html in htmls:
-        os.remove(html)
-        print(u"删除临时文件" + html)
+    # for html in htmls:
+    #     os.remove(html)
+    #     print(u"删除临时文件" + html)
 
-    for pdf in pdfs:
-        os.remove(pdf)
-        print(u"删除临时文件" + pdf)
+    # for pdf in pdfs:
+    #     os.remove(pdf)
+    #     print(u"删除临时文件" + pdf)
 
     total_time = time.time() - start
     print(u"总共耗时：%f 秒" % total_time)

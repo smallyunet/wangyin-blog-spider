@@ -7,6 +7,8 @@ pip install -r requirements.txt
 python crawl_wangyin_blog.py
 ```
 
+- 需要安装 [wkhtmltopdf](https://wkhtmltopdf.org/)
+
 
 ### 爬取王垠的博客，输出pdf文档
 - 环境  
